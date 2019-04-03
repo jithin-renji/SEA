@@ -49,7 +49,7 @@
 #define BUF_SIZE    2048
 
 /*
-    The SEA function:
+    Wrapper function for sea_encrypt() and sea_decrypt():
         Takes in the name of the file to be encrypted,
         and generates a number of random numbers, where the
         number of numbers, equals the number of bytes in the
@@ -61,6 +61,9 @@
         cannot be decrypted.
 */
 void sea (char* fname, char* key_dev_name, int encr_decr);
+
+void sea_encrypt (char* fname, char* key_dev_name);
+void sea_decrypt (char* fname, char* key_dev_name);
 
 int check_files (char* fname, char* key_dev_name, int fd_file, int fd_dev);
 
@@ -149,6 +152,15 @@ int main (int argc, char** argv)
 }
 
 void sea (char* fname, char* key_dev_name, int encr_decr)
+{    
+    if (encr_decr == ENCRYPT) {
+        sea_encrypt(fname, key_dev_name);
+    } else {
+        sea_decrypt(fname, key_dev_name);
+    }
+}
+
+void sea_encrypt(char* fname, char* key_dev_name)
 {
     srand(time(NULL));
 
@@ -162,98 +174,101 @@ void sea (char* fname, char* key_dev_name, int encr_decr)
     unsigned long nblocks_dev = 0;
     int bytes_dev = 0;
     size_t bs = 0;
-    
-    if (encr_decr == ENCRYPT) {
-        char ofname[FILENAME_MAX];
+
+    char ofname[FILENAME_MAX];
         
-        strcpy(ofname, fname);
-        strcat(ofname, "_encr");
+    strcpy(ofname, fname);
+    strcat(ofname, "_encr");
 
-        int fd_ofile = open(ofname, O_WRONLY | O_CREAT);
+    int fd_ofile = open(ofname, O_WRONLY | O_CREAT);
 
-        if (fd_ofile == -1) {
-            perror("sea: cannot open file for writing");
-            exit(EXIT_FAILURE);
-        }
+    if (fd_ofile == -1) {
+        perror("sea: cannot open file for writing");
+        exit(EXIT_FAILURE);
+    }
 
-        /* -1 if there was error in checking files */
-        int cf_err = check_files(fname, key_dev_name, fd_file, fd_dev);
+    /* -1 if there was error in checking files */
+    int cf_err = check_files(fname, key_dev_name, fd_file, fd_dev);
 
-        if (cf_err == -1) {
-            exit(EXIT_FAILURE);
+    if (cf_err == -1) {
+        exit(EXIT_FAILURE);
+    } else {
+        /* Signal to proceed or not */
+        int sig = warning_prompt(key_dev_name);
+
+        if (sig == 1) {
+            printf("Aborted.\n");
+            exit(2);
         } else {
-            /* Signal to proceed or not */
-            int sig = warning_prompt(key_dev_name);
 
-            if (sig == 1) {
-                printf("Aborted.\n");
-                exit(2);
+            int r_dev = ioctl(fd_dev, BLKGETSIZE, &nblocks_dev);
+            if (r_dev == -1) {
+                perror("sea");
+                exit(EXIT_FAILURE);
+            }
+
+            fstat(fd_file, &file_stat);
+            fstat(fd_dev, &dev_stat);
+
+            bytes_file = file_stat.st_size;
+
+            bytes_dev = nblocks_dev * 512;
+            bs = file_stat.st_blksize;
+
+            if (bytes_dev < bytes_file) {
+                fprintf(stderr, "Error: Specified device, has less space,\
+                than the data in the file given\n");
+                exit(EXIT_FAILURE);
             } else {
+                clear_dev(fd_dev, bytes_dev, bs);
 
-                int r_dev = ioctl(fd_dev, BLKGETSIZE, &nblocks_dev);
-                if (r_dev == -1) {
-                    perror("sea");
-                    exit(EXIT_FAILURE);
-                }
+                void* buf = malloc(1);
+                long double nbytes_written = 0;                    
 
-                fstat(fd_file, &file_stat);
-                fstat(fd_dev, &dev_stat);
+                while (read(fd_file, buf, 1) != 0) {
+                    char ch = *((char*)buf);
+                    int shift_size = rand() % 26;
+                    ch += shift_size;
+                    buf = &ch;
 
-                bytes_file = file_stat.st_size;
-
-                bytes_dev = nblocks_dev * 512;
-                bs = file_stat.st_blksize;
-
-                if (bytes_dev < bytes_file) {
-                    fprintf(stderr, "Error: Specified device, has less space,\
-                    than the data in the file given\n");
-                    exit(EXIT_FAILURE);
-                } else {
-                    clear_dev(fd_dev, bytes_dev, bs);
-
-                    void* buf = malloc(1);
-                    long double nbytes_written = 0;                    
-
-                    while (read(fd_file, buf, 1) != 0) {
-                        char ch = *((char*)buf);
-                        int shift_size = rand() % 26;
-                        ch += shift_size;
-                        buf = &ch;
-
-                        int ret_ofile = write(fd_ofile, buf, 1);
-                        if (ret_ofile == -1) {
-                            perror("sea: could not write to file");
-                            exit(EXIT_FAILURE);
-                        }
-
-                        int ret_dev = write(fd_dev, (void*)&shift_size, 1);
-                        if (ret_dev == -1) {
-                            perror("sea: could not write key to device");
-                            exit(EXIT_FAILURE);
-                        }
-
-                        long double percent = (nbytes_written/bytes_file) * 100;
-
-                        /* Hide cursor */
-                        fputs("\e[?25l", stdout);
-
-                        printf("Writing encryption key to device, and writing encrypted file... [%.2Lf%% Done]\r", percent);
-                        fflush(stdout);
-
-                         /* Show cursor */
-                        fputs("\e[?25h", stdout);
-
-                        buf = malloc(1);
-                        nbytes_written += 1;                        
+                    int ret_ofile = write(fd_ofile, buf, 1);
+                    if (ret_ofile == -1) {
+                        perror("sea: could not write to file");
+                        exit(EXIT_FAILURE);
                     }
-                    printf("\n\nDone!\n");
-                    free(buf);
+
+                    int ret_dev = write(fd_dev, (void*)&shift_size, 1);
+                    if (ret_dev == -1) {
+                        perror("sea: could not write key to device");
+                        exit(EXIT_FAILURE);
+                    }
+
+                    long double percent = (nbytes_written/bytes_file) * 100;
+
+                    /* Hide cursor */
+                    fputs("\e[?25l", stdout);
+
+                    printf("Writing encryption key to device, and writing encrypted file... [%.2Lf%% Done]\r", percent);
+                    fflush(stdout);
+
+                        /* Show cursor */
+                    fputs("\e[?25h", stdout);
+
+                    buf = malloc(1);
+                    nbytes_written += 1;                        
                 }
+                printf("\n\nDone!\n");
+                free(buf);
             }
         }
-        close(fd_dev);
-        close(fd_file);
     }
+    close(fd_dev);
+    close(fd_file);
+}
+
+void sea_decrypt(char* fname, char* key_dev_name)
+{
+
 }
 
 int check_files (char* fname, char* key_dev_name, int fd_file, int fd_dev)
