@@ -65,10 +65,13 @@ void sea (char* fname, char* key_dev_name, int encr_decr);
 void sea_encrypt (char* fname, char* key_dev_name);
 void sea_decrypt (char* fname, char* key_dev_name);
 
+/* Check the files before encryption. A block device is a must */
 int check_files (char* fname, char* key_dev_name, int fd_file, int fd_dev);
 
+/* Prompt to warn the user of possible data loss */
 int warning_prompt (char* key_dev_name);
 
+/* Clear the key device of its contents */
 void clear_dev (int fd_dev, size_t count, size_t bs);
 
 /* Print help message */
@@ -79,6 +82,7 @@ void version (void);
 
 int option_index = 0;
 
+/* Long options */
 struct option long_opt[] = {
     {"encrypt", required_argument,  0, 'e'},
     {"decrypt", required_argument,  0, 'd'},
@@ -95,6 +99,7 @@ int main (int argc, char** argv)
 
         exit(EXIT_FAILURE);
     } else {
+        /* Option variable, to store the current option */
         int opt = 0;
 
         /* Encrypt or not */
@@ -109,6 +114,7 @@ int main (int argc, char** argv)
         /* Key device name */
         char key_dev_name[FILENAME_MAX];
 
+        /* Parse options */
         while ((opt = getopt_long(argc, argv, "e:d:hV", long_opt, &option_index)) != -1) {
             switch (opt){
             case 'e':
@@ -134,6 +140,7 @@ int main (int argc, char** argv)
             }
         }
 
+        /* Can only encrypt, or decrypt at once */
         if ((encrypt == 1) ^ (decrypt == 1)) {
             if (argv[optind] == NULL) {
                 fprintf(stderr, "Error: Key device name was not provided\n");
@@ -147,6 +154,9 @@ int main (int argc, char** argv)
                     sea (fname, key_dev_name, DECRYPT);
                 }
             }
+        } else if (encrypt == 1 && decrypt == 1) {
+            fprintf(stderr, "Error: Cannot encrypt and decrypt at the same time\n");
+            exit(EXIT_FAILURE);
         }
     }
 
@@ -166,22 +176,39 @@ void sea_encrypt(char* fname, char* key_dev_name)
 {
     srand(time(NULL));
 
+    /* Open both the files */
     int fd_file = open(fname, O_RDONLY);
     int fd_dev = open(key_dev_name, O_RDWR);
 
+    /* 
+        File stats, which will be used,
+        to determine the number of bytes
+        to be written.
+     */
     struct stat file_stat;
     int bytes_file = 0;
 
+    /*
+        Device stats, which will be used,
+        to clear the device, and to check
+        available space.
+    */
     struct stat dev_stat;
     unsigned long nblocks_dev = 0;
     int bytes_dev = 0;
+
+    /*
+        Optimal block size of the given device.
+        It is initialized to 0, since we have
+        to first check if the device exists
+    */
     size_t bs = 0;
 
     char ofname[FILENAME_MAX];
         
     strcpy(ofname, fname);
     strcat(ofname, "_encr");
-
+    
     int fd_ofile = open(ofname, O_WRONLY | O_CREAT);
 
     if (fd_ofile == -1) {
@@ -189,7 +216,15 @@ void sea_encrypt(char* fname, char* key_dev_name)
         exit(EXIT_FAILURE);
     }
 
-    /* -1 if there was error in checking files */
+    /*
+        Check to if both the input file and
+        the given device file exists. Also,
+        check if the device file is a block
+        device.
+
+        If any one of the above is not satisfied,
+        check_files() returns -1, else 0.
+    */
     int cf_err = check_files(fname, key_dev_name, fd_file, fd_dev);
 
     if (cf_err == -1) {
@@ -202,7 +237,7 @@ void sea_encrypt(char* fname, char* key_dev_name)
             printf("Aborted.\n");
             exit(2);
         } else {
-
+            /* For getting block size of the device */
             int r_dev = ioctl(fd_dev, BLKGETSIZE, &nblocks_dev);
             if (r_dev == -1) {
                 perror("sea");
@@ -218,23 +253,35 @@ void sea_encrypt(char* fname, char* key_dev_name)
             bs = dev_stat.st_blksize;
 
             if (bytes_dev < bytes_file) {
-                fprintf(stderr, "Error: Specified device, has less space,\
-                than the data in the file given\n");
+                fprintf(stderr, "Error: Not enough space in the given device.\n");
                 exit(EXIT_FAILURE);
             } else {
                 clear_dev(fd_dev, bytes_dev, bs);
 
+                /*
+                    Since we are using the same file
+                    descriptor, we have to seek to the
+                    beginning of the device file, or else
+                    we will get an error saying that there
+                    is not enough space in the drive.
+                */
                 int ret_seek = lseek(fd_dev, 0, SEEK_SET);
                 if (ret_seek == -1) {
                     perror("sea: could not seek to beginning of device");
                     exit(EXIT_FAILURE);
                 }
 
+                /* Buffer to store the character that was read. */
                 char buf[1];
+
+                /*
+                    This value is mainly use to calculate the
+                    percentage of progress.
+                */
                 long double nbytes_written = 0;                    
 
                 while (read(fd_file, buf, 1) != 0) {
-                    char ch = *((char*)buf);
+                    char ch = *buf;
                     int shift_size = rand() % 26;
                     ch += shift_size;
                     buf[0] = ch;
@@ -244,7 +291,13 @@ void sea_encrypt(char* fname, char* key_dev_name)
                         perror("sea: cannot write to file");
                         exit(EXIT_FAILURE);
                     }
-
+                    
+                    /*
+                        The series of (pseudo) random shift sizes
+                        acts as the key. This key will be written
+                        to the given device. Essentially, the
+                        device becomes the key for decryption.
+                    */
                     int ret_dev = write(fd_dev, (void*)&shift_size, 1);
                     if (ret_dev == -1) {
                         perror("sea: cannot write key to device");
@@ -259,7 +312,7 @@ void sea_encrypt(char* fname, char* key_dev_name)
                     printf("Writing encryption key to device, and writing encrypted file... [%.2Lf%%]\r", percent);
                     fflush(stdout);
 
-                        /* Show cursor */
+                    /* Show cursor */
                     fputs("\e[?25h", stdout);
 
                     nbytes_written += 1;                        
@@ -274,6 +327,7 @@ void sea_encrypt(char* fname, char* key_dev_name)
 
 void sea_decrypt(char* fname, char* key_dev_name)
 {
+    /* Open both the files */
     int fd_file = open(fname, O_RDONLY);
     int fd_dev = open(key_dev_name, O_RDONLY);
 
@@ -298,17 +352,26 @@ void sea_decrypt(char* fname, char* key_dev_name)
         exit(EXIT_FAILURE);
     }
 
+    /* Buffer for storing bytes read from the input file */
     char file_buf[1];
+
+    /* Buffer for storing bytes read from the device */
     char dev_buf[1];
 
+    /*
+        Input file stats, which are to be used to find
+        the size of the file.
+    */
     struct stat buf;
     fstat(fd_file, &buf);
 
-    long double nbytes_written = 0;
+    /* Same as in sea_encrypt() */
+    long double nbytes_written = 0;    
     long double bytes_file = buf.st_size;
 
+    /* Read bytes from device and input file simultaneously */
     while (read(fd_file, (void*) file_buf, 1) != 0 && read(fd_dev, (void*) dev_buf, 1) != 0) {
-        char ch = *((char*)file_buf);
+        char ch = *file_buf;
         int shift_size = *((int*)dev_buf);
 
         ch -= shift_size;
@@ -321,14 +384,8 @@ void sea_decrypt(char* fname, char* key_dev_name)
         
         long double percent = (nbytes_written/bytes_file) * 100;
 
-        /* Hide cursor */
-        //fputs("\n\e[?25l", stdout);
-
         printf("Writing decrypted file... [%.2Lf%%]\r", percent);
         fflush(stdout);
-
-        /* Show cursor */
-        //fputs("\e[?25h", stdout);
 
         nbytes_written += 1;
     }
@@ -406,8 +463,14 @@ int warning_prompt (char* key_dev_name)
 
 void clear_dev (int fd_dev, size_t count, size_t bs)
 {
-    /* Number of bytes written */
+    /*
+        Number of bytes written, is
+        used to calculate the percentage of
+        progress
+    */
     long double nbytes_written = 0;
+
+    /* Buffer to store 0's to be written */
     char buf[512];
 
     memset(buf, 0, sizeof(buf));
