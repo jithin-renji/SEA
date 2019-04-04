@@ -90,7 +90,7 @@ struct option long_opt[] = {
 int main (int argc, char** argv)
 {
     if (argc < 2) {
-        fprintf(stderr, "Error: Too few arguments\n\n");
+        fprintf(stderr, "Error: Too few arguments\n");
         fprintf(stderr, "Try '%s --help'\n", argv[0]);
 
         exit(EXIT_FAILURE);
@@ -118,6 +118,7 @@ int main (int argc, char** argv)
 
             case 'd':
                 decrypt = 1;
+                strcpy(fname, optarg);
                 break;
 
             case 'h':
@@ -140,10 +141,11 @@ int main (int argc, char** argv)
             } else {
                 strcpy(key_dev_name, argv[optind]);
 
-                if (encrypt == 1)
+                if (encrypt == 1){
                     sea (fname, key_dev_name, ENCRYPT);
-                else
+                } else {
                     sea (fname, key_dev_name, DECRYPT);
+                }
             }
         }
     }
@@ -213,7 +215,7 @@ void sea_encrypt(char* fname, char* key_dev_name)
             bytes_file = file_stat.st_size;
 
             bytes_dev = nblocks_dev * 512;
-            bs = file_stat.st_blksize;
+            bs = dev_stat.st_blksize;
 
             if (bytes_dev < bytes_file) {
                 fprintf(stderr, "Error: Specified device, has less space,\
@@ -222,24 +224,30 @@ void sea_encrypt(char* fname, char* key_dev_name)
             } else {
                 clear_dev(fd_dev, bytes_dev, bs);
 
-                void* buf = malloc(1);
+                int ret_seek = lseek(fd_dev, 0, SEEK_SET);
+                if (ret_seek == -1) {
+                    perror("sea: could not seek to beginning of device");
+                    exit(EXIT_FAILURE);
+                }
+
+                char buf[1];
                 long double nbytes_written = 0;                    
 
                 while (read(fd_file, buf, 1) != 0) {
                     char ch = *((char*)buf);
                     int shift_size = rand() % 26;
                     ch += shift_size;
-                    buf = &ch;
+                    buf[0] = ch;
 
                     int ret_ofile = write(fd_ofile, buf, 1);
                     if (ret_ofile == -1) {
-                        perror("sea: could not write to file");
+                        perror("sea: cannot write to file");
                         exit(EXIT_FAILURE);
                     }
 
                     int ret_dev = write(fd_dev, (void*)&shift_size, 1);
                     if (ret_dev == -1) {
-                        perror("sea: could not write key to device");
+                        perror("sea: cannot write key to device");
                         exit(EXIT_FAILURE);
                     }
 
@@ -248,17 +256,15 @@ void sea_encrypt(char* fname, char* key_dev_name)
                     /* Hide cursor */
                     fputs("\e[?25l", stdout);
 
-                    printf("Writing encryption key to device, and writing encrypted file... [%.2Lf%% Done]\r", percent);
+                    printf("Writing encryption key to device, and writing encrypted file... [%.2Lf%%]\r", percent);
                     fflush(stdout);
 
                         /* Show cursor */
                     fputs("\e[?25h", stdout);
 
-                    buf = malloc(1);
                     nbytes_written += 1;                        
                 }
                 printf("\n\nDone!\n");
-                free(buf);
             }
         }
     }
@@ -268,7 +274,69 @@ void sea_encrypt(char* fname, char* key_dev_name)
 
 void sea_decrypt(char* fname, char* key_dev_name)
 {
+    int fd_file = open(fname, O_RDONLY);
+    int fd_dev = open(key_dev_name, O_RDONLY);
 
+    char ofname[FILENAME_MAX];
+    strcpy(ofname, fname);
+    strcat(ofname, "_decr");
+
+    int fd_ofile = open(ofname, O_WRONLY | O_CREAT);
+
+    if (fd_ofile == -1) {
+        perror("sea: cannot open file for writing");
+        exit(EXIT_FAILURE);
+    }
+
+    if (fd_file == -1) {
+        perror("sea: cannot open file for reading");
+        exit(EXIT_FAILURE);
+    }
+    
+    if (fd_dev == -1) {
+        perror("sea: cannot open device for reading");
+        exit(EXIT_FAILURE);
+    }
+
+    char file_buf[1];
+    char dev_buf[1];
+
+    struct stat buf;
+    fstat(fd_file, &buf);
+
+    long double nbytes_written = 0;
+    long double bytes_file = buf.st_size;
+
+    while (read(fd_file, (void*) file_buf, 1) != 0 && read(fd_dev, (void*) dev_buf, 1) != 0) {
+        char ch = *((char*)file_buf);
+        int shift_size = *((int*)dev_buf);
+
+        ch -= shift_size;
+
+        int ret = write(fd_ofile, (void*)&ch, 1);
+        if (ret == -1) {
+            perror("sea: cannot write to file");
+            exit(EXIT_FAILURE);
+        }
+        
+        long double percent = (nbytes_written/bytes_file) * 100;
+
+        /* Hide cursor */
+        //fputs("\n\e[?25l", stdout);
+
+        printf("Writing decrypted file... [%.2Lf%%]\r", percent);
+        fflush(stdout);
+
+        /* Show cursor */
+        //fputs("\e[?25h", stdout);
+
+        nbytes_written += 1;
+    }
+
+    close(fd_dev);
+    close(fd_file);
+
+    printf("\n\nDone!\n");
 }
 
 int check_files (char* fname, char* key_dev_name, int fd_file, int fd_dev)
@@ -318,12 +386,14 @@ int warning_prompt (char* key_dev_name)
 {
     int ret = 1;
 
-    printf("WARNING: The contents in '%s' CANNOT be recovered\n\
-         after this operation. If the encryption key for another file\n\
-         is stored in this device, it will be removed.\n\n", key_dev_name);
+    printf("WARNING: The contents of '%s' CANNOT be recovered after this operation.\n\
+         If the encryption key for another file is stored in this device, it\n\
+         will be removed.\n\n", key_dev_name);
 
     printf("Do you STILL want to continue? [y/N] ");
     int ch = fgetc(stdin);
+
+    printf("\n");
 
     if (ch == 'y' || ch == 'Y') {
         ret = 0;
@@ -355,7 +425,7 @@ void clear_dev (int fd_dev, size_t count, size_t bs)
         /* Hide cursor */
         fputs("\e[?25l", stdout);
 
-        printf("Clearing %ld byte(s). [%.2Lf%% Done]\r", count, percent);
+        printf("Clearing %ld byte(s). [%.2Lf%%]\r", count, percent);
         fflush(stdout);
 
         /* Show cursor */
@@ -375,14 +445,15 @@ void help (char* prog_name)
     printf("\t-h, --help\t\t\tShow this help message\n");
     printf("\t-V, --version\t\t\tShow version information\n\n");
 
-    printf("NOTE: This program requires root privileges.\n");
+    printf("NOTE: This program requires root privileges. For writing encryption key to\n\
+the given device, or to read the encryption key from the same device.\n");
 
     exit(EXIT_SUCCESS);
 }
 
 void version (void)
 {
-    printf("sea 0.1\n");
+    printf("sea 1.0\n");
     printf("Copyright (C) 2019 Jithin Renji.\n");
     printf("License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>.\n");
     printf("This is free software: you are free to change and redistribute it.\n");
