@@ -1,7 +1,7 @@
 /*
  *
- *    A (attempted) different implementation of the
- *    One-Time Pad.
+ *    A program to encrypt a given file, by shifting the bytes of the file
+ *    by (pseudo) random numbers.
  *
  *    Copyright (C) 2019 Jithin Renji
  *
