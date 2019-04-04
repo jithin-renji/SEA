@@ -157,6 +157,9 @@ int main (int argc, char** argv)
         } else if (encrypt == 1 && decrypt == 1) {
             fprintf(stderr, "Error: Cannot encrypt and decrypt at the same time\n");
             exit(EXIT_FAILURE);
+        } else if (encrypt == 0 && decrypt == 0) {
+            fprintf(stderr, "Error: Don't know whether to encrypt  or decrypt\n");
+            exit(EXIT_FAILURE);
         }
     }
 
@@ -186,7 +189,7 @@ void sea_encrypt(char* fname, char* key_dev_name)
         to be written.
      */
     struct stat file_stat;
-    int bytes_file = 0;
+    long long bytes_file = 0;
 
     /*
         Device stats, which will be used,
@@ -195,7 +198,7 @@ void sea_encrypt(char* fname, char* key_dev_name)
     */
     struct stat dev_stat;
     unsigned long nblocks_dev = 0;
-    int bytes_dev = 0;
+    long long  bytes_dev = 0;
 
     /*
         Optimal block size of the given device.
