@@ -37,3 +37,5 @@ Options:
 NOTE: This program requires root privileges. For writing encryption key to
 the given device, or to read the encryption key from the same device.
 ```
+
+See "COPYING" for license information.
