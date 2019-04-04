@@ -39,3 +39,5 @@ the given device, or to read the encryption key from the same device.
 ```
 
 See "COPYING" for license information.
+
+Tested on Elementary OS 5.0 (Juno)
