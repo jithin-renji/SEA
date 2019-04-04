@@ -501,7 +501,11 @@ void clear_dev (int fd_dev, size_t count, size_t bs)
 
 void help (char* prog_name)
 {
-    printf("Usage: %s <-e | -d> <file name> <key device>\n", prog_name);
+    printf("Usage: %s <-e | -d> <file name> <key device>\n\n", prog_name);
+
+    printf("SEA is a program which can be used to encrypt any given file,\n\
+by shifting the bytes of the file by (pseudo) random numbers.\n\n");
+
     printf("Options:\n");
     printf("\t-e, --encrypt <file name>\tEncrypt given file\n");
     printf("\t-d, --decrypt <file name>\tDecrypt given file\n");
