@@ -326,6 +326,9 @@ void sea_encrypt(char* fname, char* key_dev_name)
     }
     close(fd_dev);
     close(fd_file);
+    close(fd_ofile);
+
+    chmod(ofname, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 }
 
 void sea_decrypt(char* fname, char* key_dev_name)
@@ -395,6 +398,9 @@ void sea_decrypt(char* fname, char* key_dev_name)
 
     close(fd_dev);
     close(fd_file);
+    close(fd_ofile);
+
+    chmod(ofname, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 
     printf("\n\nDone!\n");
 }
