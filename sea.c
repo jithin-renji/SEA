@@ -521,7 +521,7 @@ by shifting the bytes of the file by (pseudo) random numbers.\n\n");
     printf("\t-h, --help\t\t\tShow this help message\n");
     printf("\t-V, --version\t\t\tShow version information\n\n");
 
-    printf("NOTE: This program requires root privileges. For writing encryption key to\n\
+    printf("NOTE: This program requires root privileges for writing encryption key to\n\
 the given device, or to read the encryption key from the same device.\n");
 
     exit(EXIT_SUCCESS);
