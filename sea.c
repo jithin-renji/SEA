@@ -536,4 +536,6 @@ void version (void)
     printf("There is NO WARRANTY, to the extent permitted by law.\n\n");
 
     printf("Written by Jithin Renji.\n");
+
+    exit(EXIT_SUCCESS);
 }
