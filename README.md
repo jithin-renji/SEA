@@ -16,8 +16,8 @@ the key.
 </ol>
 
 ```
-sudo make
-sudo make install
+make
+make install
 ```
 
 ## Usage Information
