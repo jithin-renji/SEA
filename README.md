@@ -1,9 +1,9 @@
 # SEA: Secure Encryption Algorithm
 
 This is a program which can be used to encrypt any given file,
-by shifting bytes of the file by (pseudo)random numbers.
+by shifting bytes of the file by pseudorandom numbers.
 
-This sequence of (pseudo)random numbers acts as the key, and this
+This sequence of pseudorandom numbers acts as the key, and this
 can be written to a USB drive. Essentially, the USB drive acts as
 a physical key.
 
