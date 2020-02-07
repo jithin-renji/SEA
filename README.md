@@ -4,9 +4,8 @@ This is a program which can be used to encrypt any given file,
 by shifting bytes of the file by (pseudo)random numbers.
 
 This sequence of (pseudo)random numbers acts as the key, and this
-can be written to a USB drive. Without this USB drive, decryption
-of the file is almost impossible. Essentially, the USB drive becomes
-the key.
+can be written to a USB drive. Essentially, the USB drive acts as
+a physical key.
 
 ## Installation
 
