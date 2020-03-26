@@ -5,9 +5,12 @@ BIN = sea
 SRC = sea.c
 
 $(BIN): $(SRC)
-	@$(CC) $(CFLAGS) $(SRC) -o $(BIN)
-	@echo "Done!"
+	$(CC) $(CFLAGS) $(SRC) -o $(BIN)
 
 install: $(BIN)
-	@sudo cp $(BIN) /usr/bin/$(BIN)
-	@echo "Done!"
+	sudo cp $(BIN) /usr/bin/$(BIN)
+
+.PHONY: clean
+
+clean:
+	rm -f $(BIN)
