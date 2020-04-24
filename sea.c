@@ -278,7 +278,7 @@ void sea_encrypt(char* fname, char* key_dev_name)
                 char buf[1];
 
                 /*
-                    This value is mainly use to calculate the
+                    This value is mainly used to calculate the
                     percentage of progress.
                 */
                 long double nbytes_written = 0;                    
