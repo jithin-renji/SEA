@@ -25,7 +25,7 @@
 #include <string.h>
 #include <time.h>
 
-/* For lstat() */
+/* For fstat() */
 #include <sys/types.h>
 #include <sys/stat.h>
 
