@@ -33,7 +33,7 @@ Options:
 	-h. --help			Show this help message
 	-V, --version			Show version information
 
-NOTE: This program requires root privileges. For writing encryption key to
+NOTE: This program requires root privileges for writing encryption key to
 the given device, or to read the encryption key from the same device.
 ```
 
