@@ -9,7 +9,7 @@
  *    it under the terms of the GNU General Public License as published by
  *    the Free Software Foundation, either version 3 of the License, or
  *    (at your option) any later version.
- *    
+ *
  *    This program is distributed in the hope that it will be useful,
  *    but WITHOUT ANY WARRANTY; without even the implied warranty of
  *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -130,10 +130,10 @@ int main (int argc, char** argv)
             case 'h':
                 help(argv[0]);
                 break;
-                
+
             case 'V':
                 version();
-                break;                
+                break;
 
             default:
                 exit(EXIT_FAILURE);
@@ -167,7 +167,7 @@ int main (int argc, char** argv)
 }
 
 void sea (char* fname, char* key_dev_name, int encr_decr)
-{    
+{
     if (encr_decr == ENCRYPT) {
         sea_encrypt(fname, key_dev_name);
     } else {
@@ -183,7 +183,7 @@ void sea_encrypt(char* fname, char* key_dev_name)
     int fd_file = open(fname, O_RDONLY);
     int fd_dev = open(key_dev_name, O_RDWR);
 
-    /* 
+    /*
         File stats, which will be used,
         to determine the number of bytes
         to be written.
@@ -208,10 +208,10 @@ void sea_encrypt(char* fname, char* key_dev_name)
     size_t bs = 0;
 
     char ofname[FILENAME_MAX];
-        
+
     strcpy(ofname, fname);
     strcat(ofname, "_encr");
-    
+
     int fd_ofile = open(ofname, O_WRONLY | O_CREAT);
 
     if (fd_ofile == -1) {
@@ -281,7 +281,7 @@ void sea_encrypt(char* fname, char* key_dev_name)
                     This value is mainly used to calculate the
                     percentage of progress.
                 */
-                long double nbytes_written = 0;                    
+                long double nbytes_written = 0;
 
                 while (read(fd_file, buf, 1) != 0) {
                     char ch = *buf;
@@ -294,7 +294,7 @@ void sea_encrypt(char* fname, char* key_dev_name)
                         perror("sea: cannot write to file");
                         exit(EXIT_FAILURE);
                     }
-                    
+
                     /*
                         The series of (pseudo) random shift sizes
                         acts as the key. This key will be written
@@ -318,7 +318,7 @@ void sea_encrypt(char* fname, char* key_dev_name)
                     /* Show cursor */
                     fputs("\e[?25h", stdout);
 
-                    nbytes_written += 1;                        
+                    nbytes_written += 1;
                 }
                 printf("\n\nDone!\n");
             }
@@ -352,7 +352,7 @@ void sea_decrypt(char* fname, char* key_dev_name)
         perror("sea: cannot open file for reading");
         exit(EXIT_FAILURE);
     }
-    
+
     if (fd_dev == -1) {
         perror("sea: cannot open device for reading");
         exit(EXIT_FAILURE);
@@ -372,7 +372,7 @@ void sea_decrypt(char* fname, char* key_dev_name)
     fstat(fd_file, &buf);
 
     /* Same as in sea_encrypt() */
-    long double nbytes_written = 0;    
+    long double nbytes_written = 0;
     long double bytes_file = buf.st_size;
 
     /* Read bytes from device and input file simultaneously */
@@ -387,7 +387,7 @@ void sea_decrypt(char* fname, char* key_dev_name)
             perror("sea: cannot write to file");
             exit(EXIT_FAILURE);
         }
-        
+
         long double percent = (nbytes_written/bytes_file) * 100;
 
         printf("Writing decrypted file... [%.2Lf%%]\r", percent);
@@ -444,7 +444,7 @@ int check_files (char* fname, char* key_dev_name, int fd_file, int fd_dev)
             ret = -1;
         }
     }
-    
+
     return ret;
 }
 
