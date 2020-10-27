@@ -43,10 +43,15 @@
 /* For getopt_long() */
 #include <getopt.h>
 
-#define ENCRYPT     1
-#define DECRYPT     0
-
 #define BUF_SIZE    2048
+
+/* Flags */
+#define ENCRYPT     1
+#define DECRYPT     1 << 2
+#define CLEAR_DEV   1 << 3
+
+/*  */
+#define IS_ENABLED(flags_var, flag) ((flags & flag) == flag)
 
 /*
     Wrapper function for sea_encrypt() and sea_decrypt():
@@ -60,9 +65,9 @@
         Without this device, the key cannot be found, and hence the file
         cannot be decrypted.
 */
-void sea (char* fname, char* key_dev_name, int encr_decr);
+void sea (char* fname, char* key_dev_name, int flags);
 
-void sea_encrypt (char* fname, char* key_dev_name);
+void sea_encrypt (char* fname, char* key_dev_name, int flags);
 void sea_decrypt (char* fname, char* key_dev_name);
 
 /* Check the files before encryption. A block device is a must */
@@ -86,6 +91,7 @@ int option_index = 0;
 struct option long_opt[] = {
     {"encrypt", required_argument,  0, 'e'},
     {"decrypt", required_argument,  0, 'd'},
+    {"clear",   no_argument,        0, 'c'},
     {"help",    no_argument,        0, 'h'},
     {"version", no_argument,        0, 'V'},
     {0,         0,                  0,  0}
@@ -99,14 +105,9 @@ int main (int argc, char** argv)
 
         exit(EXIT_FAILURE);
     } else {
-        /* Option variable, to store the current option */
         int opt = 0;
 
-        /* Encrypt or not */
-        int encrypt = 0;
-
-        /* Decrypt or not */
-        int decrypt = 0;
+        int flags = 0;
 
         /* Name of the file to be encrypted */
         char fname[FILENAME_MAX];
@@ -115,16 +116,20 @@ int main (int argc, char** argv)
         char key_dev_name[FILENAME_MAX];
 
         /* Parse options */
-        while ((opt = getopt_long(argc, argv, "e:d:hV", long_opt, &option_index)) != -1) {
+        while ((opt = getopt_long(argc, argv, "e:d:chV", long_opt, &option_index)) != -1) {
             switch (opt){
             case 'e':
-                encrypt = 1;
+                flags |= ENCRYPT;
                 strcpy(fname, optarg);
                 break;
 
             case 'd':
-                decrypt = 1;
+                flags |= DECRYPT;
                 strcpy(fname, optarg);
+                break;
+
+            case 'c':
+                flags |= CLEAR_DEV;
                 break;
 
             case 'h':
@@ -141,24 +146,19 @@ int main (int argc, char** argv)
         }
 
         /* Can only encrypt, or decrypt at once */
-        if ((encrypt == 1) ^ (decrypt == 1)) {
+        if (IS_ENABLED(flags, ENCRYPT) ^ IS_ENABLED(flags, DECRYPT)) {
             if (argv[optind] == NULL) {
                 fprintf(stderr, "Error: Key device name was not provided\n");
                 exit(EXIT_FAILURE);
             } else {
                 strcpy(key_dev_name, argv[optind]);
-
-                if (encrypt == 1){
-                    sea (fname, key_dev_name, ENCRYPT);
-                } else {
-                    sea (fname, key_dev_name, DECRYPT);
-                }
+                sea(fname, key_dev_name, flags);
             }
-        } else if (encrypt == 1 && decrypt == 1) {
+        } else if (IS_ENABLED(flags, ENCRYPT) && IS_ENABLED(flags, DECRYPT)) {
             fprintf(stderr, "Error: Cannot encrypt and decrypt at the same time\n");
             exit(EXIT_FAILURE);
-        } else if (encrypt == 0 && decrypt == 0) {
-            fprintf(stderr, "Error: Don't know whether to encrypt  or decrypt\n");
+        } else {
+            fprintf(stderr, "Error: Don't know whether to encrypt or decrypt\n");
             exit(EXIT_FAILURE);
         }
     }
@@ -166,16 +166,16 @@ int main (int argc, char** argv)
     return 0;
 }
 
-void sea (char* fname, char* key_dev_name, int encr_decr)
+void sea (char* fname, char* key_dev_name, int flags)
 {
-    if (encr_decr == ENCRYPT) {
-        sea_encrypt(fname, key_dev_name);
+    if (IS_ENABLED(flags, ENCRYPT)) {
+        sea_encrypt(fname, key_dev_name, flags);
     } else {
         sea_decrypt(fname, key_dev_name);
     }
 }
 
-void sea_encrypt(char* fname, char* key_dev_name)
+void sea_encrypt(char* fname, char* key_dev_name, int flags)
 {
     srand(time(NULL));
 
@@ -259,7 +259,8 @@ void sea_encrypt(char* fname, char* key_dev_name)
                 fprintf(stderr, "Error: Not enough space in the given device.\n");
                 exit(EXIT_FAILURE);
             } else {
-                clear_dev(fd_dev, bytes_dev, bs);
+                if (IS_ENABLED(flags, CLEAR_DEV))
+                    clear_dev(fd_dev, bytes_dev, bs);
 
                 /*
                     Since we are using the same file
@@ -492,7 +493,7 @@ void clear_dev (int fd_dev, size_t count, size_t bs)
             exit(3);
         }
 
-        long double percent = (nbytes_written/count) * 100;
+        long double percent = (nbytes_written / count) * 100;
 
         /* Hide cursor */
         fputs("\e[?25l", stdout);
@@ -515,11 +516,14 @@ void help (char* prog_name)
     printf("SEA is a program which can be used to encrypt any given file,\n\
 by shifting the bytes of the file by pseudorandom numbers.\n\n");
 
-    printf("Options:\n");
-    printf("\t-e, --encrypt <file name>\tEncrypt given file\n");
-    printf("\t-d, --decrypt <file name>\tDecrypt given file\n");
-    printf("\t-h, --help\t\t\tShow this help message\n");
-    printf("\t-V, --version\t\t\tShow version information\n\n");
+    printf(
+        "Options:\n"
+               "\t-e, --encrypt <file name>\tEncrypt given file\n"
+               "\t-d, --decrypt <file name>\tDecrypt given file\n"
+               "\t-c, --clear\t\t\tClear the device before writing the key\n"
+               "\t-h, --help\t\t\tShow this help message\n"
+               "\t-V, --version\t\t\tShow version information\n\n"
+    );
 
     printf("NOTE: This program requires root privileges for writing encryption key to\n\
 the given device, or to read the encryption key from the same device.\n");
@@ -529,13 +533,15 @@ the given device, or to read the encryption key from the same device.\n");
 
 void version (void)
 {
-    printf("sea 1.0\n");
-    printf("Copyright (C) 2019-2020 Jithin Renji.\n");
-    printf("License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>.\n");
-    printf("This is free software: you are free to change and redistribute it.\n");
-    printf("There is NO WARRANTY, to the extent permitted by law.\n\n");
+    printf(
+        "sea 1.0\n"
+        "Copyright (C) 2019-2020 Jithin Renji.\n"
+        "License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>.\n"
+        "This is free software: you are free to change and redistribute it.\n"
+        "There is NO WARRANTY, to the extent permitted by law.\n\n"
 
-    printf("Written by Jithin Renji.\n");
+        "Written by Jithin Renji.\n"
+    );
 
     exit(EXIT_SUCCESS);
 }
