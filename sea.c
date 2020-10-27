@@ -65,25 +65,25 @@
         Without this device, the key cannot be found, and hence the file
         cannot be decrypted.
 */
-void sea (char* fname, char* key_dev_name, int flags);
+void sea(char* fname, char* key_dev_name, int flags);
 
-void sea_encrypt (char* fname, char* key_dev_name, int flags);
-void sea_decrypt (char* fname, char* key_dev_name);
+void sea_encrypt(char* fname, char* key_dev_name, int flags);
+void sea_decrypt(char* fname, char* key_dev_name);
 
 /* Check the files before encryption. A block device is a must */
-int check_files (char* fname, char* key_dev_name, int fd_file, int fd_dev);
+int check_files(char* fname, char* key_dev_name, int fd_file, int fd_dev);
 
 /* Prompt to warn the user of possible data loss */
-int warning_prompt (char* key_dev_name);
+int warning_prompt(char* key_dev_name);
 
 /* Clear the key device of its contents */
-void clear_dev (int fd_dev, size_t count, size_t bs);
+void clear_dev(int fd_dev, size_t count, size_t bs);
 
 /* Print help message */
-void help (char* prog_name);
+void help(char* prog_name);
 
 /* Print version information */
-void version (void);
+void version(void);
 
 int option_index = 0;
 
@@ -97,7 +97,7 @@ struct option long_opt[] = {
     {0,         0,                  0,  0}
 };
 
-int main (int argc, char** argv)
+int main(int argc, char** argv)
 {
     if (argc < 2) {
         fprintf(stderr, "Error: Too few arguments\n");
@@ -166,7 +166,7 @@ int main (int argc, char** argv)
     return 0;
 }
 
-void sea (char* fname, char* key_dev_name, int flags)
+void sea(char* fname, char* key_dev_name, int flags)
 {
     if (IS_ENABLED(flags, ENCRYPT)) {
         sea_encrypt(fname, key_dev_name, flags);
@@ -406,7 +406,7 @@ void sea_decrypt(char* fname, char* key_dev_name)
     printf("\n\nDone!\n");
 }
 
-int check_files (char* fname, char* key_dev_name, int fd_file, int fd_dev)
+int check_files(char* fname, char* key_dev_name, int fd_file, int fd_dev)
 {
     /*
         Value to be returned by the function.
@@ -449,7 +449,7 @@ int check_files (char* fname, char* key_dev_name, int fd_file, int fd_dev)
     return ret;
 }
 
-int warning_prompt (char* key_dev_name)
+int warning_prompt(char* key_dev_name)
 {
     int ret = 1;
 
@@ -471,7 +471,7 @@ int warning_prompt (char* key_dev_name)
     return ret;
 }
 
-void clear_dev (int fd_dev, size_t count, size_t bs)
+void clear_dev(int fd_dev, size_t count, size_t bs)
 {
     /*
         Number of bytes written, is
@@ -509,7 +509,7 @@ void clear_dev (int fd_dev, size_t count, size_t bs)
     printf("\n");
 }
 
-void help (char* prog_name)
+void help(char* prog_name)
 {
     printf("Usage: %s <-e | -d> <file name> <key device>\n\n", prog_name);
 
@@ -531,7 +531,7 @@ the given device, or to read the encryption key from the same device.\n");
     exit(EXIT_SUCCESS);
 }
 
-void version (void)
+void version(void)
 {
     printf(
         "sea 1.0\n"
