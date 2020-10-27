@@ -1,9 +1,9 @@
 /*
  *
  *    A program to encrypt a given file, by shifting the bytes of the file
- *    by (pseudo) random numbers.
+ *    by pseudorandom numbers.
  *
- *    Copyright (C) 2019 Jithin Renji
+ *    Copyright (C) 2019-2020 Jithin Renji
  *
  *    This program is free software: you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
@@ -296,7 +296,7 @@ void sea_encrypt(char* fname, char* key_dev_name)
                     }
 
                     /*
-                        The series of (pseudo) random shift sizes
+                        The series of pseudorandom shift sizes
                         acts as the key. This key will be written
                         to the given device. Essentially, the
                         device becomes the key for decryption.
@@ -513,7 +513,7 @@ void help (char* prog_name)
     printf("Usage: %s <-e | -d> <file name> <key device>\n\n", prog_name);
 
     printf("SEA is a program which can be used to encrypt any given file,\n\
-by shifting the bytes of the file by (pseudo) random numbers.\n\n");
+by shifting the bytes of the file by pseudorandom numbers.\n\n");
 
     printf("Options:\n");
     printf("\t-e, --encrypt <file name>\tEncrypt given file\n");
@@ -530,7 +530,7 @@ the given device, or to read the encryption key from the same device.\n");
 void version (void)
 {
     printf("sea 1.0\n");
-    printf("Copyright (C) 2019 Jithin Renji.\n");
+    printf("Copyright (C) 2019-2020 Jithin Renji.\n");
     printf("License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>.\n");
     printf("This is free software: you are free to change and redistribute it.\n");
     printf("There is NO WARRANTY, to the extent permitted by law.\n\n");
