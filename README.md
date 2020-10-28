@@ -1,4 +1,4 @@
-# SEA: Secure Encryption Algorithm
+# SEA
 
 This is a program which can be used to encrypt any given file,
 by shifting bytes of the file by pseudorandom numbers.
