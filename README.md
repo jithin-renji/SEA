@@ -1,11 +1,9 @@
 # SEA
 
 This is a program which can be used to encrypt any given file,
-by shifting bytes of the file by pseudorandom numbers.
-
-This sequence of pseudorandom numbers acts as the key, and is
-written to a USB drive. Essentially, the USB drive acts as
-a physical key.
+by shifting bytes of the file by pseudorandom numbers. The sequence of
+pseudorandom numbers acts as the key, and is written to a USB drive.
+Essentially, the USB drive acts as a physical key.
 
 ## Installation
 
