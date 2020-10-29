@@ -50,27 +50,31 @@
 #define DECRYPT     1 << 2
 #define CLEAR_DEV   1 << 3
 
-/*  */
+/* Check if a given flag is enabled */
 #define IS_ENABLED(flags_var, flag) ((flags & flag) == flag)
 
 /*
-    Wrapper function for sea_encrypt() and sea_decrypt():
+    sea_encrypt():
         Takes in the name of the file to be encrypted,
         and generates a number of random numbers, where the
         number of numbers, equals the number of bytes in the
-        file.
+        file. This is written to a USB flash drive.
+*/
+void sea_encrypt(char* fname, char* key_dev_name, int flags);
 
+/*
+    sea_decrypt():
         The data relating to the series of numbers is stored
         in the device, which is given to the function during encryption.
         Without this device, the key cannot be found, and hence the file
         cannot be decrypted.
-*/
-void sea(char* fname, char* key_dev_name, int flags);
-
-void sea_encrypt(char* fname, char* key_dev_name, int flags);
+ */
 void sea_decrypt(char* fname, char* key_dev_name);
 
-/* Check the files before encryption. A block device is a must */
+/*
+   Check the files before encryption.
+   The key device *must* be a block device
+*/
 int check_files(char* fname, char* key_dev_name, int fd_file, int fd_dev);
 
 /* Prompt to warn the user of possible data loss */
@@ -152,7 +156,11 @@ int main(int argc, char** argv)
                 exit(EXIT_FAILURE);
             } else {
                 strcpy(key_dev_name, argv[optind]);
-                sea(fname, key_dev_name, flags);
+                if (IS_ENABLED(flags, ENCRYPT)) {
+                    sea_encrypt(fname, key_dev_name, flags);
+                } else {
+                    sea_decrypt(fname, key_dev_name);
+                }
             }
         } else if (IS_ENABLED(flags, ENCRYPT) && IS_ENABLED(flags, DECRYPT)) {
             fprintf(stderr, "Error: Cannot encrypt and decrypt at the same time\n");
@@ -164,15 +172,6 @@ int main(int argc, char** argv)
     }
 
     return 0;
-}
-
-void sea(char* fname, char* key_dev_name, int flags)
-{
-    if (IS_ENABLED(flags, ENCRYPT)) {
-        sea_encrypt(fname, key_dev_name, flags);
-    } else {
-        sea_decrypt(fname, key_dev_name);
-    }
 }
 
 void sea_encrypt(char* fname, char* key_dev_name, int flags)
@@ -276,21 +275,24 @@ void sea_encrypt(char* fname, char* key_dev_name, int flags)
                 }
 
                 /* Buffer to store the character that was read. */
-                char buf[1];
+                size_t alloc_size = bytes_file < BUF_SIZE ? bytes_file : BUF_SIZE;
+                char buf[alloc_size];
+                char shifts[alloc_size];
 
                 /*
                     This value is mainly used to calculate the
                     percentage of progress.
                 */
                 long double nbytes_written = 0;
+                size_t bytes_read = 0;
+                while ((bytes_read = read(fd_file, buf, alloc_size)) != 0) {
+                    for (size_t i = 0; i < bytes_read; i++) {
+                        char shift_size = rand() % 26;
+                        buf[i] += shift_size;
+                        shifts[i] = shift_size;
+                    }
 
-                while (read(fd_file, buf, 1) != 0) {
-                    char ch = *buf;
-                    int shift_size = rand() % 26;
-                    ch += shift_size;
-                    buf[0] = ch;
-
-                    int ret_ofile = write(fd_ofile, buf, 1);
+                    int ret_ofile = write(fd_ofile, buf, bytes_read);
                     if (ret_ofile == -1) {
                         perror("sea: cannot write to file");
                         exit(EXIT_FAILURE);
@@ -302,13 +304,13 @@ void sea_encrypt(char* fname, char* key_dev_name, int flags)
                         to the given device. Essentially, the
                         device becomes the key for decryption.
                     */
-                    int ret_dev = write(fd_dev, (void*)&shift_size, 1);
+                    int ret_dev = write(fd_dev, (void*)shifts, bytes_read);
                     if (ret_dev == -1) {
                         perror("sea: cannot write key to device");
                         exit(EXIT_FAILURE);
                     }
 
-                    long double percent = (nbytes_written/bytes_file) * 100;
+                    long double percent = (nbytes_written / bytes_file) * 100;
 
                     /* Hide cursor */
                     fputs("\e[?25l", stdout);
@@ -319,7 +321,7 @@ void sea_encrypt(char* fname, char* key_dev_name, int flags)
                     /* Show cursor */
                     fputs("\e[?25h", stdout);
 
-                    nbytes_written += 1;
+                    nbytes_written += bytes_read;
                 }
                 printf("\n\nDone!\n");
             }
@@ -359,12 +361,6 @@ void sea_decrypt(char* fname, char* key_dev_name)
         exit(EXIT_FAILURE);
     }
 
-    /* Buffer for storing bytes read from the input file */
-    char file_buf[1];
-
-    /* Buffer for storing bytes read from the device */
-    char dev_buf[1];
-
     /*
         Input file stats, which are to be used to find
         the size of the file.
@@ -376,14 +372,25 @@ void sea_decrypt(char* fname, char* key_dev_name)
     long double nbytes_written = 0;
     long double bytes_file = buf.st_size;
 
+    const size_t alloc_size = bytes_file < BUF_SIZE ? bytes_file : BUF_SIZE;
+
+    /* Buffer for storing bytes read from the input file */
+    char file_buf[alloc_size];
+
+    /* Buffer for storing bytes read from the device */
+    char dev_buf[alloc_size];
+
     /* Read bytes from device and input file simultaneously */
-    while (read(fd_file, (void*) file_buf, 1) != 0 && read(fd_dev, (void*) dev_buf, 1) != 0) {
-        char ch = *file_buf;
-        int shift_size = *((int*)dev_buf);
+    while (read(fd_file, (void*) file_buf, alloc_size) != 0 &&
+           read(fd_dev, (void*) dev_buf, alloc_size) != 0) {
+        char out_buf[alloc_size];
 
-        ch -= shift_size;
+        for (size_t i = 0; i < alloc_size; i++) {
+            int shift_size = dev_buf[i];
+            out_buf[i] = file_buf[i] - shift_size;
+        }
 
-        int ret = write(fd_ofile, (void*)&ch, 1);
+        int ret = write(fd_ofile, (void*)out_buf, alloc_size);
         if (ret == -1) {
             perror("sea: cannot write to file");
             exit(EXIT_FAILURE);
@@ -394,7 +401,7 @@ void sea_decrypt(char* fname, char* key_dev_name)
         printf("Writing decrypted file... [%.2Lf%%]\r", percent);
         fflush(stdout);
 
-        nbytes_written += 1;
+        nbytes_written += alloc_size;
     }
 
     close(fd_dev);
