@@ -8,8 +8,8 @@ Essentially, the USB drive acts as a physical key.
 ## Installation
 
 <ol>
-	<li>Change to the source directory.</li>
-	<li>Run the following commands:</li>
+    <li>Change to the source directory.</li>
+    <li>Run the following commands:</li>
 </ol>
 
 ```
@@ -26,10 +26,11 @@ SEA is a program which can be used to encrypt any given file,
 by shifting bytes of the file by pseudorandom numbers.
 
 Options:
-	-e, --encrypt <file name>	Encrypt given file
-	-d, --decrypt <file name>	Decrypt given file
-	-h. --help			Show this help message
-	-V, --version			Show version information
+    -e, --encrypt <file name>   Encrypt given file
+    -d, --decrypt <file name>   Decrypt given file
+    -c, --clear                 Clear the device before writing the key
+    -h. --help                  Show this help message
+    -V, --version               Show version information
 
 NOTE: This program requires root privileges for writing encryption key to
 the given device, or to read the encryption key from the same device.
