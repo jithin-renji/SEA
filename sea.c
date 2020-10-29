@@ -81,7 +81,7 @@ int check_files(char* fname, char* key_dev_name, int fd_file, int fd_dev);
 int warning_prompt(char* key_dev_name);
 
 /* Clear the key device of its contents */
-void clear_dev(int fd_dev, size_t count, size_t bs);
+void clear_dev(int fd_dev, size_t count);
 
 /* Print help message */
 void help(char* prog_name);
@@ -199,13 +199,6 @@ void sea_encrypt(char* fname, char* key_dev_name, int flags)
     unsigned long nblocks_dev = 0;
     long long  bytes_dev = 0;
 
-    /*
-        Optimal block size of the given device.
-        It is initialized to 0, since we have
-        to first check if the device exists
-    */
-    size_t bs = 0;
-
     char ofname[FILENAME_MAX];
 
     strcpy(ofname, fname);
@@ -252,14 +245,13 @@ void sea_encrypt(char* fname, char* key_dev_name, int flags)
             bytes_file = file_stat.st_size;
 
             bytes_dev = nblocks_dev * 512;
-            bs = dev_stat.st_blksize;
 
             if (bytes_dev < bytes_file) {
                 fprintf(stderr, "Error: Not enough space in the given device.\n");
                 exit(EXIT_FAILURE);
             } else {
                 if (IS_ENABLED(flags, CLEAR_DEV))
-                    clear_dev(fd_dev, bytes_dev, bs);
+                    clear_dev(fd_dev, bytes_dev);
 
                 /*
                     Since we are using the same file
@@ -478,7 +470,7 @@ int warning_prompt(char* key_dev_name)
     return ret;
 }
 
-void clear_dev(int fd_dev, size_t count, size_t bs)
+void clear_dev(int fd_dev, size_t count)
 {
     /*
         Number of bytes written, is
@@ -511,7 +503,7 @@ void clear_dev(int fd_dev, size_t count, size_t bs)
         /* Show cursor */
         fputs("\e[?25h", stdout);
 
-        nbytes_written += bs;
+        nbytes_written += 512;
     }
     printf("\n");
 }
